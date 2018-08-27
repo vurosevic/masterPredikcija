@@ -33,3 +33,10 @@
     (.write w data)))
 
 
+;; matrixs for training, 70% of all data
+(def input_matrix2 (dge 50 276 (reduce into [] (map :x (read-data-training)))))
+(def target_matrix2 (dge 1 276 (map :y (read-data-training))))
+
+;; matrixs for test, 30% of all data
+(def input_test_matrix2 (dge 50 91 (reduce into [] (map :x (read-data-test)))))
+(def target_test_matrix2 (dge 1 91 (map :y (read-data-test))))
