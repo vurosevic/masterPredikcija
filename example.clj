@@ -3,6 +3,7 @@
   (:require [uncomplicate.neanderthal.core :refer :all]
             [uncomplicate.neanderthal.vect-math :refer :all]
             [uncomplicate.neanderthal.native :refer :all]
+            [uncomplicate.neanderthal.linalg :refer :all]
             [clojure.string :as string]
             [clojure.core :as core]
             [master-predikcija.data :refer :all]
@@ -36,3 +37,5 @@
 ;; hidden output gradient
 (mul (second (:temp-matrix mreza4)) (mm (:output-layer mreza4) (:temp-vector-o-gradients mreza4)))
 
+;; jedinicna matrica
+(dtr 3 (range 1) {:diag :unit})

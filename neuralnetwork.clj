@@ -177,18 +177,13 @@
 
        (for [x (range (- (count temp-matrix) 1) 0 -1)]
          (do
-           ;; (mm! (nth layers x)
-           ;;     (nth (:temp-vector-vector-h-gradients network) x)
-           ;;     (nth (:temp-vector-vector-h-gradients network) (dec x)) )
-
            (mm! 1.0 (nth layers x)
                     (nth (:temp-vector-vector-h-gradients network) x)
                 0.0 (nth (:temp-vector-vector-h-gradients network) (dec x)))
 
            (mul! (nth temp-matrix (dec x)) (nth (:temp-vector-vector-h-gradients network) (dec x)))
-           )
-           )
-         )
+           )))
+
 
 
 
