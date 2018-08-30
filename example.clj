@@ -39,3 +39,21 @@
 
 ;; jedinicna matrica
 (dtr 3 (range 1) {:diag :unit})
+
+;; racunanje delte
+
+(col (nth (:temp-vector-matrix-delta mreza4) 2) 0)
+(col (nth (:temp-matrix mreza4) 1) 0)
+
+;; priprema kopiranje ulaza iz sloja pre
+;; ubaciti skalar alpha - brzina ucenja
+(axpy! (col (nth (:temp-matrix mreza4) 1) 0)
+       (col (nth (:temp-vector-matrix-delta mreza4) 2) 1))
+
+;; posle pomnoziti sa gradijentom
+
+
+
+
+
+

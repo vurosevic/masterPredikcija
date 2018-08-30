@@ -104,9 +104,18 @@
         temp-vector-o-gradients2 (dge number-output-neurons 1 (repeat number-output-neurons 0))
 
         temp-matrix-1 (dge number-output-neurons 1)
-        temp-matrix-2 (dge number-output-neurons 1)
-        temp-matrix-3 (dge number-output-neurons 1)
-        temp-matrix-4 (dge number-output-neurons 1)
+        temp-vector-matrix-delta (vec (concat (for [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
+                                                (conj (#(create-null-matrix (first x) (second x)))))
+                                              (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
+                                                                            (second (last (map vector tmp1 tmp2)))))))
+        temp-prev-delta-vector-matrix-delta (vec (concat (for [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
+                                                           (conj (#(create-null-matrix (first x) (second x)))))
+                                                         (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
+                                                                                     (second (last (map vector tmp1 tmp2)))))))
+        temp-vector-matrix-delta-momentum (vec (concat (for [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
+                                                         (conj (#(create-null-matrix (first x) (second x)))))
+                                                       (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
+                                                                                   (second (last (map vector tmp1 tmp2)))))))
         ]
 
 
@@ -119,9 +128,9 @@
                      temp-vector-o-gradients2
                      temp-vector-vector-h-gradients
                      temp-matrix-1
-                     temp-matrix-2
-                     temp-matrix-3
-                     temp-matrix-4)
+                     temp-vector-matrix-delta
+                     temp-prev-delta-vector-matrix-delta
+                     temp-prev-delta-vector-matrix-delta)
     )
   )
 
@@ -182,11 +191,24 @@
                 0.0 (nth (:temp-vector-vector-h-gradients network) (dec x)))
 
            (mul! (nth temp-matrix (dec x)) (nth (:temp-vector-vector-h-gradients network) (dec x)))
-           )))
+           ))
 
 
+       ;; calculate delta for weights
+       (for [row_o (range (- (count (conj (:temp-matrix network) input)) 2) -1 -1)]
+           (let [layer-out-vector (col (nth (conj (:temp-matrix network) input) row_o) 0)
+               cols-num (ncols (nth (:temp-vector-matrix-delta network) row_o))]
+             (for [x (range cols-num)]
 
+               ;;(str row_o)
+               (axpy! layer-out-vector
+                      (col (nth (:temp-vector-matrix-delta network) row_o) x)
+                      )
+               )
+           )
+         )
 
+       )
      )
   )
 
