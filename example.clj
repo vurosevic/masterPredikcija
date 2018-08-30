@@ -22,7 +22,7 @@
 
 
 
-(def mreza5 (create-network 3 [4 8 8 4] 2))
+(def mreza5 (create-network 3 [8 8 8 8] 2))
 
 (def mreza4 (create-network 3 [4 4] 2))
 (def input4 (dge 3 1 [0.5 0.5 0.7]))
@@ -33,9 +33,16 @@
 
 (backpropagation mreza4 input4 0 target4 1)
 
+
+(feed-forward mreza5 input4)
 (for [x (range 1000)]
-  (backpropagation mreza4 input4 0 target4 1)
+  (do
+    (backpropagation mreza5 input4 0 target4 0.1)
+    nil
+    )
   )
+
+(def ignore (constantly nil))
 
 (entry (col (backpropagation mreza4 input4 0 target4 1) 0) 1)
 

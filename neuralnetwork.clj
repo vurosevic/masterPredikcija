@@ -199,7 +199,7 @@
            (let [layer-out-vector (col (nth (conj (:temp-matrix network) input) row_o) 0)
                cols-num (ncols (nth (:temp-vector-matrix-delta network) row_o))]
              (doseq [x (range cols-num)]
-               (axpy! layer-out-vector
+               (axpy! speed-learning layer-out-vector
                       (col (nth (:temp-vector-matrix-delta network) row_o) x))
                )))
 
@@ -216,8 +216,6 @@
                (nth layers layer-grad))
 
          )
-
-
        )
      )
   )
