@@ -43,7 +43,7 @@
 (defn random-number
   "random number in interval [0 .. 0.1]"
   []
-  (rand 0.47))
+  (rand 0.37))
 
 (defn create-random-matrix
   "Initialize a layer"
@@ -184,7 +184,7 @@
 
        ;; calculate hidden gradients
 
-       (for [x (range (- (count temp-matrix) 1) 0 -1)]
+       (doseq [x (range (- (count temp-matrix) 1) 0 -1)]
          (do
            (mm! 1.0 (nth layers x)
                     (nth (:temp-vector-vector-h-gradients network) x)
@@ -195,18 +195,24 @@
 
 
        ;; calculate delta for weights
-       (for [row_o (range (- (count (conj (:temp-matrix network) input)) 2) -1 -1)]
+       (doseq [row_o (range (- (count (conj (:temp-matrix network) input)) 2) -1 -1)]
            (let [layer-out-vector (col (nth (conj (:temp-matrix network) input) row_o) 0)
                cols-num (ncols (nth (:temp-vector-matrix-delta network) row_o))]
-             (for [x (range cols-num)]
-
-               ;;(str row_o)
+             (doseq [x (range cols-num)]
                (axpy! layer-out-vector
-                      (col (nth (:temp-vector-matrix-delta network) row_o) x)
-                      )
-               )
+                      (col (nth (:temp-vector-matrix-delta network) row_o) x))
+               )))
+
+       (for [layer-grad (range (count (:temp-vector-vector-h-gradients network)))]
+         (let []
+           (for [x (range (mrows (nth (:temp-vector-vector-h-gradients network) layer-grad)))]
+             (scal! (entry (row (nth (:temp-vector-vector-h-gradients network) layer-grad) x) 0)
+                    (col (nth (:temp-vector-matrix-delta network) layer-grad) x)
+                    )
+             )
            )
          )
+
 
        )
      )
