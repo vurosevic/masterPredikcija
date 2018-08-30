@@ -203,14 +203,18 @@
                       (col (nth (:temp-vector-matrix-delta network) row_o) x))
                )))
 
-       (for [layer-grad (range (count (:temp-vector-vector-h-gradients network)))]
+       (doseq [layer-grad (range (count (:temp-vector-vector-h-gradients network)))]
          (let []
-           (for [x (range (mrows (nth (:temp-vector-vector-h-gradients network) layer-grad)))]
+           (doseq [x (range (mrows (nth (:temp-vector-vector-h-gradients network) layer-grad)))]
              (scal! (entry (row (nth (:temp-vector-vector-h-gradients network) layer-grad) x) 0)
                     (col (nth (:temp-vector-matrix-delta network) layer-grad) x)
                     )
              )
            )
+
+         (axpy! (nth (:temp-vector-matrix-delta network) layer-grad)
+               (nth layers layer-grad))
+
          )
 
 

@@ -32,6 +32,11 @@
 (entry (col (feed-forward mreza4 input4) 0) 0)
 
 (backpropagation mreza4 input4 0 target4 1)
+
+(for [x (range 1000)]
+  (backpropagation mreza4 input4 0 target4 1)
+  )
+
 (entry (col (backpropagation mreza4 input4 0 target4 1) 0) 1)
 
 ;; hidden output gradient
