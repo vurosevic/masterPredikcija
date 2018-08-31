@@ -43,7 +43,7 @@
 (defn random-number
   "random number in interval [0 .. 0.1]"
   []
-  (rand 0.37))
+  (rand 0.01))
 
 (defn create-random-matrix
   "Initialize a layer"
@@ -159,6 +159,30 @@
     )
   )
 
+(defn feed-forward-all
+  "feed forward propagation"
+  [network input-mtx]
+  (let [input-vec-dim (mrows input-mtx)
+        net-input-dim (first (:tmp1 network))
+        tmp2 (:tmp2 network)
+        temp-matrix (for [x tmp2]
+                      (conj (#(create-null-matrix x (ncols input-mtx)))))
+        number-of-layers (count temp-matrix)
+        ]
+    (if (= input-vec-dim net-input-dim)
+      (do
+
+        (layer-output input-mtx (trans (nth (:hidden-layers network) 0)) (nth temp-matrix 0) tanh!)
+        (doseq [y (range 0 (- number-of-layers 2))]
+          (layer-output (nth temp-matrix y) (trans (nth (:hidden-layers network) (inc y))) (nth temp-matrix (inc y)) tanh!))
+        (layer-output (nth temp-matrix (- number-of-layers 2)) (trans (:output-layer network)) (nth temp-matrix (- number-of-layers 1)) tanh!)
+        (nth temp-matrix (dec number-of-layers)))
+      (throw (Exception. (str "Input dimmensions is not correct")))
+      )
+    )
+  )
+
+
 (defn backpropagation
   "learn network with one input vector"
   [network inputmtx no targetmtx speed-learning]
@@ -215,13 +239,55 @@
          (axpy! (nth (:temp-vector-matrix-delta network) layer-grad)
                (nth layers layer-grad))
 
+nil
          )
+
        )
      )
   )
 
+(defn predict
+  "feed forward propagation - prediction consumptions for input matrix"
+  [network input-mtx]
+  (let [net-input-dim  (mrows (first (:hidden-layers network)))
+        input-vec-dim  (mrows input-mtx)
+        input-vec-rows (ncols input-mtx)]
+
+    (if (= net-input-dim input-vec-dim)
+        (feed-forward-all network input-mtx)
+      (throw (Exception.
+               (str "Error. Input dimensions is not correct. Expected dimension is: " net-input-dim)))
+      ))
+   )
 
 
+
+(defn train-network
+  "train network with input/target vectors"
+  [network input-mtx target-mtx iteration-count speed-learning]
+  (let [line-count (dec (ncols input-mtx))]
+    (str
+      (for [y (range iteration-count)]
+        (for [x (range line-count)]
+          (backpropagation network input-mtx x target-mtx speed-learning)
+          )))))
+
+(defn evaluate
+  "evaluation - detail view"
+  [output-mtx target-mtx]
+  (let [num (ncols output-mtx)]
+    (for [i (range num)]
+      {:output      (entry output-mtx 0 i)
+       :target      (entry target-mtx 0 i)
+       :percent-abs (Math/abs (* (/ (- (entry output-mtx 0 i) (entry target-mtx 0 i)) (entry target-mtx 0 i)) 100))}
+      )))
+
+(defn evaluate-abs
+  "evaluation neural network - average report by absolute deviations"
+  [input-mtx target-mtx]
+  (let [u (count (map :percent-abs (evaluate input-mtx target-mtx)))
+        s (reduce + (map :percent-abs (evaluate input-mtx target-mtx)))]
+    (/ s u)))
 
 ;; -------------------------------------------------------------------------
 

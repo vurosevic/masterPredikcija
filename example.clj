@@ -13,9 +13,19 @@
 (create-network 2 [4 4] 3)
 
 (def mreza3 (create-network 50 [64] 1))
+
+(def mreza3 (atom (create-network 50 [64 64] 1)))
+(feed-forward @mreza3 (submatrix input_matrix2 0 1 50 1))
+
 (feed-forward mreza3 (submatrix input_matrix2 0 1 50 1))
 (backpropagation mreza3 (submatrix input_matrix2 0 0 50 1) 0
                  (submatrix target_matrix2 0 0 1 1) 1)
+
+(submatrix target_matrix2 0 0 1 1)
+
+(str (for [x (range 12000)]
+                (backpropagation @mreza3 (submatrix input_matrix2 0 0 50 1) 0
+                          (submatrix target_matrix2 0 0 1 1) 0.1)))
 
 (entry (row (backpropagation mreza3 (submatrix input_matrix2 0 0 50 1) 0
                              (submatrix target_matrix2 0 0 1 1) 1) 0) 0)
@@ -35,12 +45,10 @@
 
 
 (feed-forward mreza5 input4)
-(for [x (range 1000)]
-  (do
-    (backpropagation mreza5 input4 0 target4 0.1)
-    nil
-    )
-  )
+(str (for [x (range 100000)]
+       (constantly
+         (backpropagation mreza5 input4 0 target4 0.1))))
+
 
 (def ignore (constantly nil))
 
@@ -64,8 +72,17 @@
 
 ;; posle pomnoziti sa gradijentom
 
+(train-network mreza3 (submatrix input_matrix2 0 0 50 1) 0
+               (submatrix target_matrix2 0 0 1 1) 500 0.1)
 
+(train-network @mreza3 input_matrix2
+               target_matrix2 1630 0.1)
 
+;; evaluate result
+(evaluate (predict @mreza3 input_test_matrix2) target_test_matrix2)
+
+;; average error
+(evaluate-abs (predict @mreza3 input_test_matrix2) target_test_matrix2)
 
 
 
