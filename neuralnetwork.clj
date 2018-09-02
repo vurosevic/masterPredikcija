@@ -43,7 +43,7 @@
 (defn random-number
   "random number in interval [0 .. 0.1]"
   []
-  (rand 0.01))
+  (rand 0.1))
 
 (defn create-random-matrix
   "Initialize a layer"
@@ -214,6 +214,15 @@
                     (nth (:temp-vector-vector-h-gradients network) x)
                 0.0 (nth (:temp-vector-vector-h-gradients network) (dec x)))
 
+           ;;(mul! (nth temp-matrix (dec x)) (nth (:temp-vector-vector-h-gradients network) (dec x)))
+           ))
+
+       (doseq [x (range (- (count temp-matrix) 1) 0 -1)]
+         (do
+           ;; (mm! 1.0 (nth layers x)
+           ;;     (nth (:temp-vector-vector-h-gradients network) x)
+           ;;  0.0 (nth (:temp-vector-vector-h-gradients network) (dec x))      )
+
            (mul! (nth temp-matrix (dec x)) (nth (:temp-vector-vector-h-gradients network) (dec x)))
            ))
 
@@ -239,7 +248,6 @@
          (axpy! (nth (:temp-vector-matrix-delta network) layer-grad)
                (nth layers layer-grad))
 
-nil
          )
 
        )
@@ -267,8 +275,8 @@ nil
   [network input-mtx target-mtx iteration-count speed-learning]
   (let [line-count (dec (ncols input-mtx))]
     (str
-      (for [y (range iteration-count)]
-        (for [x (range line-count)]
+      (doseq [y (range iteration-count)]
+        (doseq [x (range line-count)]
           (backpropagation network input-mtx x target-mtx speed-learning)
           )))))
 

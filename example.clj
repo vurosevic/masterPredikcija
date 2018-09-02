@@ -72,17 +72,25 @@
 
 ;; posle pomnoziti sa gradijentom
 
-(train-network mreza3 (submatrix input_matrix2 0 0 50 1) 0
-               (submatrix target_matrix2 0 0 1 1) 500 0.1)
+(def mreza3 (atom (create-network 50 [64] 1)))
+(feed-forward @mreza3 (submatrix input_matrix2 0 1 50 1))
+
+(train-network @mreza3 (submatrix input_matrix2 0 0 50 2)
+               (submatrix target_matrix2 0 0 1 2) 50000 0.1)
 
 (train-network @mreza3 input_matrix2
-               target_matrix2 1630 0.1)
+               target_matrix2 14000 0.00005)
 
 ;; evaluate result
 (evaluate (predict @mreza3 input_test_matrix2) target_test_matrix2)
 
+
+
 ;; average error
 (evaluate-abs (predict @mreza3 input_test_matrix2) target_test_matrix2)
+
+(evaluate (predict @mreza3 input_matrix2) target_matrix2)
+(evaluate-abs (predict @mreza3 input_matrix2) target_matrix2)
 
 
 
