@@ -102,4 +102,7 @@
 (evaluate-abs (predict @mreza4 input_test_matrix2) target_test_matrix2)
 
 (train-network @mreza4 input_matrix2
-               target_matrix2 38000 0.00005)
+               target_matrix2 2000 0.00005)
+
+(time (train-network @mreza4 input_matrix2
+                     target_matrix2 1000 0.00005 0.3))

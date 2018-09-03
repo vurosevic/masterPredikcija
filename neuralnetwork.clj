@@ -182,10 +182,20 @@
     )
   )
 
+(defn copy-matrix-delta
+  "save delta matrix for momentum"
+  [network]
+  (let [delta-matrix (:temp-vector-matrix-delta network)
+        prev-delta-matrix (:temp-prev-delta-vector-matrix-delta network)
+        layers-count (count delta-matrix)]
+    (for [x (range layers-count)]
+      (copy! (nth delta-matrix x) (nth prev-delta-matrix x)))
+    )
+  )
 
 (defn backpropagation
   "learn network with one input vector"
-  [network inputmtx no targetmtx speed-learning]
+  [network inputmtx no targetmtx speed-learning alpha]
   (let [hidden-layers (:hidden-layers network)
         output-layer (:output-layer network)
         layers (vec (concat (:hidden-layers network) (vector (:output-layer network))))
@@ -196,61 +206,54 @@
         input (submatrix inputmtx 0 no (first (:tmp1 network)) 1)
         target (submatrix targetmtx 0 no (last (:tmp2 network)) 1)
         ]
-     (do
-       (feed-forward network input)
+    (do
+      (feed-forward network input)
+      (copy-matrix-delta network)
 
-       ;; calculate output gradients
-       (axpy! -1 (last temp-matrix) temp-vector-o-gradients)
-       (axpy! 1 target temp-vector-o-gradients)
-       (dtanh! (last temp-matrix) temp-vector-o-gradients2)
-       (mul! temp-vector-o-gradients2 temp-vector-o-gradients temp-vector-o-gradients)
-       (copy! temp-vector-o-gradients (last temp-vector-vector-h-gradients))
+      ;; calculate output gradients
+      (axpy! -1 (last temp-matrix) temp-vector-o-gradients)
+      (axpy! 1 target temp-vector-o-gradients)
+      (dtanh! (last temp-matrix) temp-vector-o-gradients2)
+      (mul! temp-vector-o-gradients2 temp-vector-o-gradients temp-vector-o-gradients)
+      (copy! temp-vector-o-gradients (last temp-vector-vector-h-gradients))
 
-       ;; calculate hidden gradients
+      ;; calculate hidden gradients
 
-       (doseq [x (range (- (count temp-matrix) 1) 0 -1)]
-         (do
-           (mm! 1.0 (nth layers x)
-                    (nth (:temp-vector-vector-h-gradients network) x)
-                0.0 (nth (:temp-vector-vector-h-gradients network) (dec x)))
+      (doseq [x (range (- (count temp-matrix) 1) 0 -1)]
+        (do
+          (mm! 1.0 (nth layers x)
+               (nth (:temp-vector-vector-h-gradients network) x)
+               0.0 (nth (:temp-vector-vector-h-gradients network) (dec x)))
+          (mul! (nth temp-matrix (dec x)) (nth (:temp-vector-vector-h-gradients network) (dec x)))
+          ))
 
-           ;;(mul! (nth temp-matrix (dec x)) (nth (:temp-vector-vector-h-gradients network) (dec x)))
-           ))
+      ;; calculate delta for weights
+      (doseq [row_o (range (- (count (conj (:temp-matrix network) input)) 2) -1 -1)]
+        (let [layer-out-vector (col (nth (conj (:temp-matrix network) input) row_o) 0)
+              cols-num (ncols (nth (:temp-vector-matrix-delta network) row_o))]
+          (doseq [x (range cols-num)]
+            (axpy! speed-learning layer-out-vector
+                   (col (nth (:temp-vector-matrix-delta network) row_o) x))
+            )))
 
-       (doseq [x (range (- (count temp-matrix) 1) 0 -1)]
-         (do
-           ;; (mm! 1.0 (nth layers x)
-           ;;     (nth (:temp-vector-vector-h-gradients network) x)
-           ;;  0.0 (nth (:temp-vector-vector-h-gradients network) (dec x))      )
+      (doseq [layer-grad (range (count (:temp-vector-vector-h-gradients network)))]
+        (let []
+          (doseq [x (range (mrows (nth (:temp-vector-vector-h-gradients network) layer-grad)))]
+            (scal! (entry (row (nth (:temp-vector-vector-h-gradients network) layer-grad) x) 0)
+                   (col (nth (:temp-vector-matrix-delta network) layer-grad) x)
+                   )
+            )
+          )
 
-           (mul! (nth temp-matrix (dec x)) (nth (:temp-vector-vector-h-gradients network) (dec x)))
-           ))
-
-
-       ;; calculate delta for weights
-       (doseq [row_o (range (- (count (conj (:temp-matrix network) input)) 2) -1 -1)]
-           (let [layer-out-vector (col (nth (conj (:temp-matrix network) input) row_o) 0)
-               cols-num (ncols (nth (:temp-vector-matrix-delta network) row_o))]
-             (doseq [x (range cols-num)]
-               (axpy! speed-learning layer-out-vector
-                      (col (nth (:temp-vector-matrix-delta network) row_o) x))
-               )))
-
-       (doseq [layer-grad (range (count (:temp-vector-vector-h-gradients network)))]
-         (let []
-           (doseq [x (range (mrows (nth (:temp-vector-vector-h-gradients network) layer-grad)))]
-             (scal! (entry (row (nth (:temp-vector-vector-h-gradients network) layer-grad) x) 0)
-                    (col (nth (:temp-vector-matrix-delta network) layer-grad) x)
-                    )
-             )
-           )
-
-         (axpy! (nth (:temp-vector-matrix-delta network) layer-grad)
+        (axpy! (nth (:temp-vector-matrix-delta network) layer-grad)
                (nth layers layer-grad))
 
-         )
+        (axpy! alpha (nth (:temp-prev-delta-vector-matrix-delta network) layer-grad)
+               (nth layers layer-grad))
+        )
 
-       )
+
+      )
      )
   )
 
@@ -272,12 +275,12 @@
 
 (defn train-network
   "train network with input/target vectors"
-  [network input-mtx target-mtx iteration-count speed-learning]
+  [network input-mtx target-mtx iteration-count speed-learning alpha]
   (let [line-count (dec (ncols input-mtx))]
     (str
       (doseq [y (range iteration-count)]
         (doseq [x (range line-count)]
-          (backpropagation network input-mtx x target-mtx speed-learning)
+          (backpropagation network input-mtx x target-mtx speed-learning alpha)
           )))))
 
 (defn evaluate
