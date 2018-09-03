@@ -79,7 +79,7 @@
                (submatrix target_matrix2 0 0 1 2) 50000 0.1)
 
 (train-network @mreza3 input_matrix2
-               target_matrix2 14000 0.00005)
+               target_matrix2 14000 0.000015)
 
 ;; evaluate result
 (evaluate (predict @mreza3 input_test_matrix2) target_test_matrix2)
@@ -93,4 +93,13 @@
 (evaluate-abs (predict @mreza3 input_matrix2) target_matrix2)
 
 
+;; test 2 sloja
+(def mreza4 (atom (create-network 50 [64 64] 1)))
+(feed-forward @mreza4 (submatrix input_matrix2 0 1 50 1))
+(evaluate (predict @mreza4 input_matrix2) target_matrix2)
+(evaluate (predict @mreza4 input_test_matrix2) target_test_matrix2)
+(evaluate-abs (predict @mreza4 input_matrix2) target_matrix2)
+(evaluate-abs (predict @mreza4 input_test_matrix2) target_test_matrix2)
 
+(train-network @mreza4 input_matrix2
+               target_matrix2 38000 0.00005)
