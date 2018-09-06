@@ -32,6 +32,41 @@
   (with-open [w (clojure.java.io/writer  (str "resources/" filename) :append true)]
     (.write w data)))
 
+(defn save-network-to-file
+  "save network state in file"
+  [network filename]
+  (do
+    (write-file filename "CONFIGURATION\n")
+    (write-file filename
+                (str (string/join ""
+                                  (drop-last
+                                    (reduce str (map str (conj (:tmp1 network) (last (:tmp2 network)))
+                                                     (replicate (count (conj (:tmp1 network) (last (:tmp2 network)))) ","))))) "\n")
+                )
+    (write-file filename "LAYERS\n")
+    (doall
+
+      (doseq [y (range (count (:hidden-layers network)))]
+        (write-file filename (str "LAYER," (inc y) "\n"))
+        (doseq [x (range (mrows (nth (:hidden-layers network) y)))]
+          (write-file filename
+                      (str (string/join ""
+                                        (drop-last
+                                          (reduce str (map str (row (nth (:hidden-layers network) y) x)
+                                                           (replicate (ncols (nth (:hidden-layers network) y)) ","))))) "\n"))))
+       )
+
+    (write-file filename "OUTPUT\n")
+    (doall
+      (for [x (range (mrows (:output-layer network)))]
+        (write-file filename
+                    (str (string/join ""
+                                      (drop-last
+                                        (reduce str (map str (row (:output-layer network) x)
+                                                         (replicate (ncols (:output-layer network)) ","))))) "\n"))))
+    (write-file filename "END\n")
+    ))
+
 
 ;; matrixs for training, 70% of all data
 (def input_matrix2 (dge 50 276 (reduce into [] (map :x (read-data-training)))))

@@ -117,8 +117,6 @@
                                                        (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
                                                                                    (second (last (map vector tmp1 tmp2)))))))
         ]
-
-
      (->Neuronetwork hidden-layers
                      output-layer
                      tmp1
@@ -273,16 +271,6 @@
 
 
 
-(defn train-network
-  "train network with input/target vectors"
-  [network input-mtx target-mtx iteration-count speed-learning alpha]
-  (let [line-count (dec (ncols input-mtx))]
-    (str
-      (doseq [y (range iteration-count)]
-        (doseq [x (range line-count)]
-          (backpropagation network input-mtx x target-mtx speed-learning alpha)
-          )))))
-
 (defn evaluate
   "evaluation - detail view"
   [output-mtx target-mtx]
@@ -299,6 +287,157 @@
   (let [u (count (map :percent-abs (evaluate input-mtx target-mtx)))
         s (reduce + (map :percent-abs (evaluate input-mtx target-mtx)))]
     (/ s u)))
+
+
+(defn learning-decay-rate
+  "Calculate learninig decay rate for epoch"
+  [speed-learning decay-rate epoch-no]
+  (/ decay-rate (+ 1 (* decay-rate epoch-no)))
+  )
+
+(defn train-network
+  "train network with input/target vectors"
+  [network input-mtx target-mtx iteration-count speed-learning alpha]
+  (let [line-count (dec (ncols input-mtx))]
+    (str
+      (doseq [y (range iteration-count)]
+        (doseq [x (range line-count)]
+          (backpropagation network input-mtx x target-mtx speed-learning alpha)
+          )
+        (let [os (mod y 100)]
+          (if (= os 0)
+            (let [mape-value (evaluate-abs (predict network input_test_matrix2) target_test_matrix2)]
+              (do
+                (println y ": " mape-value)
+                (write-file "konvg_0015_3_dinamic.csv" (str y "," mape-value "\n")))
+              )
+
+
+            )
+          )
+        ))))
+
+(defn train-network-with-learning-decay-rate
+  "train network with input/target vectors"
+  [network input-mtx target-mtx iteration-count speed-learning alpha decay-rate]
+  (let [line-count (dec (ncols input-mtx))]
+    (str
+      (doseq [y (range iteration-count)]
+        (doseq [x (range line-count)]
+          (backpropagation network input-mtx x target-mtx (learning-decay-rate speed-learning decay-rate y) alpha)
+          )
+        (let [os (mod y 100)]
+          (if (= os 0)
+            (let [mape-value (evaluate-abs (predict network input_test_matrix2) target_test_matrix2)]
+              (do
+                (println y ": " mape-value)
+                (write-file "konvg_0015_3_dinamic.csv" (str y "," mape-value "\n")))
+              )
+
+
+            )
+          )
+        ))))
+
+(defn get-network-config
+  "get network config from file file"
+  [filename]
+  (let [c-index (.indexOf (string/split (slurp (str "resources/" filename)) #"\n") "CONFIGURATION")
+        l-index (.indexOf (string/split (slurp (str "resources/" filename)) #"\n") "LAYERS")]
+    (map read-string (get (vec (map #(string/split % #",")
+                          (take 1 (nthnext
+                                    (string/split
+                                      (slurp (str "resources/" filename)) #"\n") (inc c-index)))))0))
+    )
+)
+
+(defn load-network-configuration-hidden-layer
+  "get a output part of data from file"
+  [filename x]
+  (let [o-index (.indexOf (string/split (slurp (str "resources/" filename)) #"\n") (str "LAYER," (inc x)))
+        e-index (.indexOf (string/split (slurp (str "resources/" filename)) #"\n") (str "LAYER," (+ x 2)))
+        e-index2 (.indexOf (string/split (slurp (str "resources/" filename)) #"\n") "OUTPUT")
+        ]
+
+      (if (= e-index -1)
+        (map #(string/split % #",")
+             (take (dec (- e-index2 o-index))
+                   (nthnext
+                     (string/split
+                       (slurp (str "resources/" filename)) #"\n") (inc o-index))))
+        (map #(string/split % #",")
+             (take (dec (- e-index o-index))
+                   (nthnext
+                     (string/split
+                       (slurp (str "resources/" filename)) #"\n") (inc o-index))))
+      )
+ ))
+
+
+(defn load-network-configuration-output-layer
+  "get a output part of data from file"
+  [filename]
+  (let [o-index (.indexOf (string/split (slurp (str "resources/" filename)) #"\n") "OUTPUT")
+        e-index (.indexOf (string/split (slurp (str "resources/" filename)) #"\n") "END")]
+    (do
+      (map #(string/split % #",")
+           (take (dec (- e-index o-index))
+                 (nthnext
+                   (string/split
+                     (slurp (str "resources/" filename)) #"\n") (inc o-index)))))))
+
+(defn create-network-from-file
+  "create new neural network and load state from file"
+  [filename]
+  (let [layers-count (count (vec (get-network-config filename)))
+        tmp1 (take (dec layers-count) (vec (get-network-config filename)))
+        tmp2 (drop 1 (vec (get-network-config filename)))
+        temp-matrix (for [x tmp2]
+                      (conj (#(create-null-matrix x 1))))
+        number-output-neurons (last tmp2)
+        hidden-layers (let [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
+                        (for [y (range (dec (count (map vector tmp1 tmp2))))]
+                          (conj
+                            (trans (dge (second (nth x y)) (first (nth x y)) (reduce into [] (map #(map parse-float %)
+                                                                                  (load-network-configuration-hidden-layer filename y))))
+                                   )
+                            ))
+                        )
+        o-layer-conf (load-network-configuration-output-layer filename)
+        output-layer (dge (last tmp1) (last tmp2) (reduce into [] (map #(map parse-float %) o-layer-conf)))
+        temp-vector-vector-h-gradients (vec (for [x tmp2] (dge x 1 (repeat x 0))))
+        temp-vector-o-gradients  (dge number-output-neurons 1 (repeat number-output-neurons 0))
+        temp-vector-o-gradients2 (dge number-output-neurons 1 (repeat number-output-neurons 0))
+        temp-matrix-1 (dge number-output-neurons 1)
+        temp-vector-matrix-delta (vec (concat (for [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
+                                                (conj (#(create-null-matrix (first x) (second x)))))
+                                              (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
+                                                                          (second (last (map vector tmp1 tmp2)))))))
+        temp-prev-delta-vector-matrix-delta (vec (concat (for [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
+                                                           (conj (#(create-null-matrix (first x) (second x)))))
+                                                         (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
+                                                                                     (second (last (map vector tmp1 tmp2)))))))
+        temp-vector-matrix-delta-momentum (vec (concat (for [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
+                                                         (conj (#(create-null-matrix (first x) (second x)))))
+                                                       (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
+                                                                                   (second (last (map vector tmp1 tmp2)))))))
+        ]
+
+
+    (->Neuronetwork hidden-layers
+                    output-layer
+                    tmp1
+                    tmp2
+                    temp-matrix
+                    temp-vector-o-gradients
+                    temp-vector-o-gradients2
+                    temp-vector-vector-h-gradients
+                    temp-matrix-1
+                    temp-vector-matrix-delta
+                    temp-prev-delta-vector-matrix-delta
+                    temp-prev-delta-vector-matrix-delta)
+    )
+  )
 
 ;; -------------------------------------------------------------------------
 

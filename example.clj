@@ -94,7 +94,7 @@
 
 
 ;; test 2 sloja
-(def mreza4 (atom (create-network 50 [64 64] 1)))
+(def mreza4 (atom (create-network 50 [64] 1)))
 (feed-forward @mreza4 (submatrix input_matrix2 0 1 50 1))
 (evaluate (predict @mreza4 input_matrix2) target_matrix2)
 (evaluate (predict @mreza4 input_test_matrix2) target_test_matrix2)
@@ -105,4 +105,31 @@
                target_matrix2 2000 0.00005)
 
 (time (train-network @mreza4 input_matrix2
-                     target_matrix2 1000 0.00005 0.3))
+                     target_matrix2 10000 0.0015 0.3))
+
+(save-network-to-file @mreza4 "nn_01.csv")
+
+(def mreza20 (atom (create-network-from-file "nn_01.csv")))
+(feed-forward @mreza20 (submatrix input_matrix2 0 1 50 1))
+(evaluate-abs (predict @mreza20 input_test_matrix2) target_test_matrix2)
+
+(time (train-network @mreza20 input_matrix2
+                     target_matrix2 5000 0.0015 0.003))
+
+
+;; test
+(def mreza5 (atom (create-network 50 [64 64 64 64] 1)))
+(feed-forward @mreza5 (submatrix input_matrix2 0 1 50 1))
+(evaluate (predict @mreza5 input_matrix2) target_matrix2)
+(evaluate (predict @mreza5 input_test_matrix2) target_test_matrix2)
+(evaluate-abs (predict @mreza5 input_matrix2) target_matrix2)
+(evaluate-abs (predict @mreza5 input_test_matrix2) target_test_matrix2)
+
+(save-network-to-file @mreza5 "nn_64_64_171.csv")
+(def mreza5 (atom (create-network-from-file "nn_64_64_169.csv")))
+
+(time (train-network @mreza5 input_matrix2
+                     target_matrix2 300 0.00015 0.003))
+
+(time (train-network-with-learning-decay-rate @mreza5 input_matrix2
+                     target_matrix2 2500 0.0015 0.003 0.009))
