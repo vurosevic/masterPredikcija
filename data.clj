@@ -43,6 +43,20 @@
                                     (reduce str (map str (conj (:tmp1 network) (last (:tmp2 network)))
                                                      (replicate (count (conj (:tmp1 network) (last (:tmp2 network)))) ","))))) "\n")
                 )
+
+    (write-file filename "BIASES\n")
+    (doall
+
+      (doseq [y (range (count (:biases network)))]
+        (write-file filename (str "BIAS," (inc y) "\n"))
+        (doseq [x (range (mrows (nth (:biases network) y)))]
+          (write-file filename
+                      (str (string/join ""
+                                        (drop-last
+                                          (reduce str (map str (row (nth (:biases network) y) x)
+                                                           (replicate (ncols (nth (:biases network) y)) ","))))) "\n"))))
+      )
+
     (write-file filename "LAYERS\n")
     (doall
 

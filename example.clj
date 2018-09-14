@@ -72,7 +72,7 @@
 
 ;; posle pomnoziti sa gradijentom
 
-(def mreza3 (atom (create-network 50 [64] 1)))
+(def mreza3 (atom (create-network 50 [64 64] 1)))
 (feed-forward @mreza3 (submatrix input_matrix2 0 1 50 1))
 
 (train-network @mreza3 (submatrix input_matrix2 0 0 50 2)
@@ -118,18 +118,43 @@
 
 
 ;; test
-(def mreza5 (atom (create-network 50 [64 64 64 64] 1)))
+(def mreza5 (atom (create-network 50 [64 64 64 64 64 64] 1)))
+(def mreza5 (atom (create-network 50 [64 64 64] 1)))
+(def mreza5 (atom (create-network 50 [64 64] 1)))
 (feed-forward @mreza5 (submatrix input_matrix2 0 1 50 1))
 (evaluate (predict @mreza5 input_matrix2) target_matrix2)
 (evaluate (predict @mreza5 input_test_matrix2) target_test_matrix2)
 (evaluate-abs (predict @mreza5 input_matrix2) target_matrix2)
 (evaluate-abs (predict @mreza5 input_test_matrix2) target_test_matrix2)
 
-(save-network-to-file @mreza5 "nn_64_64_171.csv")
+(xavier-initialization-update @mreza5)
+
+(save-network-to-file @mreza5 "nn_64_64_162b.csv")
+(save-network-to-file @mreza5 "nn_64_64_183b.csv")
 (def mreza5 (atom (create-network-from-file "nn_64_64_169.csv")))
+(def mreza5 (atom (create-network-from-file "nn_64_64_183b.csv")))
 
 (time (train-network @mreza5 input_matrix2
-                     target_matrix2 300 0.00015 0.003))
+                     target_matrix2 1000 0.00015 0.9))
+
+(time (train-network @mreza5 input_matrix2
+                     target_matrix2 2000 0.005 0))
 
 (time (train-network-with-learning-decay-rate @mreza5 input_matrix2
-                     target_matrix2 2500 0.0015 0.003 0.009))
+                     target_matrix2 2000 0.015 0 0.02))
+
+(time (train-network-with-learning-decay-rate @mreza5 input_matrix2
+                     target_matrix2 1000 0.015 0 0.002))
+
+(time (train-network-with-learning-decay-rate @mreza5 input_matrix2
+                     target_matrix2 2000 0.015 -0.9 0.0001))
+
+(time (train-network-with-learning-decay-rate @mreza5 input_matrix2
+                     target_matrix2 10000 0.015 -0.9 0.01))
+
+;; daje dobre rezultate sa 50 64 64 1
+(time (train-network @mreza5 input_matrix2
+                     target_matrix2 200 0.005 -0.9))
+
+(time (train-network @mreza5 input_matrix2
+                     target_matrix2 13000 0.0015 -0.9))

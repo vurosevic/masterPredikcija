@@ -10,6 +10,7 @@
 (defrecord Neuronetwork [
                          hidden-layers                       ;; vector of hidden layers
                          output-layer                        ;; output layer
+                         biases                              ;; biases of each neuron, dim number of output neurons
 
                          tmp1                                ;; tmp1 vector
                          tmp2                                ;; tmp2 vector
@@ -23,6 +24,7 @@
 
                          temp-matrix-gradients               ;; gradients for hidden layers, vectors by layer
                          temp-vector-matrix-delta            ;; delta weights for layers
+                         temp-vector-matrix-delta-biases     ;; delta biases for layers
                          temp-prev-delta-vector-matrix-delta ;; previous delta vector matrix layers
                          temp-vector-matrix-delta-momentum   ;; delta weights for layers - momentum
 
@@ -43,7 +45,28 @@
 (defn random-number
   "random number in interval [0 .. 0.1]"
   []
-  (rand 0.1))
+  (rand 0.071))
+
+
+(import '(java.util Random))
+(def normals
+  (let [r (Random.)]
+    (take 10000 (repeatedly #(-> r .nextGaussian (* 0.3) (+ 1.0))))
+    ;;(map #(/ % 10) (take 10000 (repeatedly #(-> r .nextGaussian (* 0.3) (+ 1.0)))))
+    ))
+
+
+(defn create-random-matrix-by-gaussian
+  "Initialize a layer"
+  [dim-y dim-x]
+  (do
+    (if (> dim-y max-dim)
+      (throw (Exception. (str "Error. Max number of neurons is " max-dim))))
+    (if (> dim-x max-dim)
+      (throw (Exception. (str "Error. Max number of neurons is " max-dim))))
+    ;; (dge dim-y dim-x (repeatedly random-number))
+    (dge dim-y dim-x (take (* dim-x dim-y) normals))
+    ))
 
 (defn create-random-matrix
   "Initialize a layer"
@@ -53,7 +76,7 @@
       (throw (Exception. (str "Error. Max number of neurons is " max-dim))))
     (if (> dim-x max-dim)
       (throw (Exception. (str "Error. Max number of neurons is " max-dim))))
-    (dge dim-y dim-x (repeatedly random-number))
+     (dge dim-y dim-x (repeatedly random-number))
     ))
 
 (defn create-null-matrix
@@ -69,8 +92,15 @@
 
 (defn layer-output
   "generate output from layer"
-  [input weights result o-func]
-  (o-func (mm! 1.0 weights input 0.0 result)))
+  [input weights biases result o-func]
+  (do
+    (mm! 1.0 weights input 0.0 result)
+     (for [x (range (count (cols result)))]
+          (axpy! biases (cols result x))
+       )
+    (o-func result)
+    )
+ )
 
 (defn dtanh!
   "calculate dtanh for vector or matrix"
@@ -99,6 +129,7 @@
                         (conj (#(create-random-matrix (first x) (second x)))))
         output-layer (create-random-matrix (first (last (map vector tmp1 tmp2)))
                                            (second (last (map vector tmp1 tmp2))))
+        biases (vec (for [x tmp2] (dge x 1 (repeat x 1))))
         temp-vector-vector-h-gradients (vec (for [x tmp2] (dge x 1 (repeat x 0))))
         temp-vector-o-gradients  (dge number-output-neurons 1 (repeat number-output-neurons 0))
         temp-vector-o-gradients2 (dge number-output-neurons 1 (repeat number-output-neurons 0))
@@ -108,6 +139,7 @@
                                                 (conj (#(create-null-matrix (first x) (second x)))))
                                               (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
                                                                             (second (last (map vector tmp1 tmp2)))))))
+        temp-vector-matrix-delta-biases (vec (for [x tmp2] (dge x 1 (repeat x 0))))
         temp-prev-delta-vector-matrix-delta (vec (concat (for [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
                                                            (conj (#(create-null-matrix (first x) (second x)))))
                                                          (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
@@ -119,6 +151,7 @@
         ]
      (->Neuronetwork hidden-layers
                      output-layer
+                     biases
                      tmp1
                      tmp2
                      temp-matrix
@@ -127,6 +160,7 @@
                      temp-vector-vector-h-gradients
                      temp-matrix-1
                      temp-vector-matrix-delta
+                     temp-vector-matrix-delta-biases
                      temp-prev-delta-vector-matrix-delta
                      temp-prev-delta-vector-matrix-delta)
     )
@@ -147,10 +181,11 @@
         (copy! (dge (last (:tmp2 network)) 1 (replicate (last (:tmp2 network)) 0)) (:temp-vector-o-gradients2 network))
 
 
-        (layer-output input-mtx (trans (nth (:hidden-layers network) 0)) (nth temp-matrix 0) tanh!)
+        (layer-output input-mtx (trans (nth (:hidden-layers network) 0)) (nth (:biases network) 0)  (nth temp-matrix 0) tanh!)
         (doseq [y (range 0 (- number-of-layers 2))]
-          (layer-output (nth temp-matrix y) (trans (nth (:hidden-layers network) (inc y))) (nth temp-matrix (inc y)) tanh!))
-        (layer-output (nth temp-matrix (- number-of-layers 2)) (trans (:output-layer network)) (nth temp-matrix (- number-of-layers 1)) tanh!)
+          (layer-output (nth temp-matrix y) (trans (nth (:hidden-layers network) (inc y))) (nth (:biases network) (inc y)) (nth temp-matrix (inc y)) tanh!))
+
+        (layer-output (nth temp-matrix (- number-of-layers 2)) (trans (:output-layer network)) (last (:biases network)) (nth temp-matrix (- number-of-layers 1)) tanh!)
         (nth temp-matrix (dec number-of-layers)))
       (throw (Exception. (str "Input dimmensions is not correct")))
       )
@@ -170,10 +205,10 @@
     (if (= input-vec-dim net-input-dim)
       (do
 
-        (layer-output input-mtx (trans (nth (:hidden-layers network) 0)) (nth temp-matrix 0) tanh!)
+        (layer-output input-mtx (trans (nth (:hidden-layers network) 0)) (nth (:biases network) 0) (nth temp-matrix 0) tanh!)
         (doseq [y (range 0 (- number-of-layers 2))]
-          (layer-output (nth temp-matrix y) (trans (nth (:hidden-layers network) (inc y))) (nth temp-matrix (inc y)) tanh!))
-        (layer-output (nth temp-matrix (- number-of-layers 2)) (trans (:output-layer network)) (nth temp-matrix (- number-of-layers 1)) tanh!)
+          (layer-output (nth temp-matrix y) (trans (nth (:hidden-layers network) (inc y))) (nth (:biases network) (inc y)) (nth temp-matrix (inc y)) tanh!))
+        (layer-output (nth temp-matrix (- number-of-layers 2)) (trans (:output-layer network)) (last (:biases network)) (nth temp-matrix (- number-of-layers 1)) tanh!)
         (nth temp-matrix (dec number-of-layers)))
       (throw (Exception. (str "Input dimmensions is not correct")))
       )
@@ -206,7 +241,10 @@
         ]
     (do
       (feed-forward network input)
-      (copy-matrix-delta network)
+
+      (if (not (= alpha 0))
+        (copy-matrix-delta network)
+        )
 
       ;; calculate output gradients
       (axpy! -1 (last temp-matrix) temp-vector-o-gradients)
@@ -246,8 +284,21 @@
         (axpy! (nth (:temp-vector-matrix-delta network) layer-grad)
                (nth layers layer-grad))
 
-        (axpy! alpha (nth (:temp-prev-delta-vector-matrix-delta network) layer-grad)
+        ;; update biases
+        (mul! (nth (:temp-vector-vector-h-gradients network) layer-grad)
+              (nth (:biases network) layer-grad)
+              (nth (:temp-vector-matrix-delta-biases network) layer-grad)
+        )
+
+        (scal! speed-learning (nth (:temp-vector-matrix-delta-biases network) layer-grad))
+        (axpy! (nth (:temp-vector-matrix-delta-biases network) layer-grad)
+               (nth (:biases network) layer-grad))
+
+        ;; momentum, if alpha <> 0
+        (if (not (= alpha 0))
+          (axpy! alpha (nth (:temp-prev-delta-vector-matrix-delta network) layer-grad)
                (nth layers layer-grad))
+         )
         )
 
 
@@ -302,14 +353,18 @@
     (str
       (doseq [y (range iteration-count)]
         (doseq [x (range line-count)]
-          (backpropagation network input-mtx x target-mtx speed-learning alpha)
-          )
+           (backpropagation network input-mtx x target-mtx speed-learning alpha)
+        )
         (let [os (mod y 100)]
           (if (= os 0)
-            (let [mape-value (evaluate-abs (predict network input_test_matrix2) target_test_matrix2)]
+            (let [mape-value (evaluate-abs (predict network input_test_matrix2) target_test_matrix2)
+                  mape-valueIN (evaluate-abs (predict network input_matrix2) target_matrix2)
+                  ]
               (do
                 (println y ": " mape-value)
-                (write-file "konvg_0015_3_dinamic.csv" (str y "," mape-value "\n")))
+                (println y ": " mape-valueIN)
+                (println "---------------------")
+                (write-file "konvg_test_20180912.csv" (str y "," mape-value "\n")))
               )
 
 
@@ -331,7 +386,7 @@
             (let [mape-value (evaluate-abs (predict network input_test_matrix2) target_test_matrix2)]
               (do
                 (println y ": " mape-value)
-                (write-file "konvg_0015_3_dinamic.csv" (str y "," mape-value "\n")))
+                (write-file "konvg_test_20180912_learnig_decay_rate_002.csv" (str y "," mape-value "\n")))
               )
 
 
@@ -350,6 +405,28 @@
                                       (slurp (str "resources/" filename)) #"\n") (inc c-index)))))0))
     )
 )
+
+(defn load-network-configuration-biases
+  "get a output part of data from file"
+  [filename x]
+  (let [o-index (.indexOf (string/split (slurp (str "resources/" filename)) #"\n") (str "BIAS," (inc x)))
+        e-index (.indexOf (string/split (slurp (str "resources/" filename)) #"\n") (str "BIAS," (+ x 2)))
+        e-index2 (.indexOf (string/split (slurp (str "resources/" filename)) #"\n") "LAYERS")
+        ]
+
+    (if (= e-index -1)
+      (map #(string/split % #",")
+           (take (dec (- e-index2 o-index))
+                 (nthnext
+                   (string/split
+                     (slurp (str "resources/" filename)) #"\n") (inc o-index))))
+      (map #(string/split % #",")
+           (take (dec (- e-index o-index))
+                 (nthnext
+                   (string/split
+                     (slurp (str "resources/" filename)) #"\n") (inc o-index))))
+      )
+    ))
 
 (defn load-network-configuration-hidden-layer
   "get a output part of data from file"
@@ -405,6 +482,8 @@
                         )
         o-layer-conf (load-network-configuration-output-layer filename)
         output-layer (dge (last tmp1) (last tmp2) (reduce into [] (map #(map parse-float %) o-layer-conf)))
+        biases (vec (for [x (range (count tmp2))] (dge (nth tmp2 x) 1 (reduce into [] (map #(map parse-float %)
+                                                                                           (load-network-configuration-biases filename x))))))
         temp-vector-vector-h-gradients (vec (for [x tmp2] (dge x 1 (repeat x 0))))
         temp-vector-o-gradients  (dge number-output-neurons 1 (repeat number-output-neurons 0))
         temp-vector-o-gradients2 (dge number-output-neurons 1 (repeat number-output-neurons 0))
@@ -413,6 +492,7 @@
                                                 (conj (#(create-null-matrix (first x) (second x)))))
                                               (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
                                                                           (second (last (map vector tmp1 tmp2)))))))
+        temp-vector-matrix-delta-biases (vec (for [x tmp2] (dge x 1 (repeat x 0))))
         temp-prev-delta-vector-matrix-delta (vec (concat (for [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
                                                            (conj (#(create-null-matrix (first x) (second x)))))
                                                          (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
@@ -426,6 +506,7 @@
 
     (->Neuronetwork hidden-layers
                     output-layer
+                    biases
                     tmp1
                     tmp2
                     temp-matrix
@@ -434,9 +515,32 @@
                     temp-vector-vector-h-gradients
                     temp-matrix-1
                     temp-vector-matrix-delta
+                    temp-vector-matrix-delta-biases
                     temp-prev-delta-vector-matrix-delta
                     temp-prev-delta-vector-matrix-delta)
     )
+  )
+
+(defn xavier-initialization-update
+  [network]
+
+  (let [layer-neurons (map vector (:tmp1 network) (:tmp2 network))
+
+       ]
+    (do
+      ;; prepare weights for hidden layers
+      (doseq [x (range (dec (count layer-neurons))) ]
+        (scal! (Math/sqrt (/ 2 (+ (first (nth layer-neurons x)) (second (nth layer-neurons x)))))
+               (nth (:hidden-layers network) x)
+        )
+      )
+
+      ;; prepare weights for output layer
+      (scal! (Math/sqrt (/ 2 (+ (first (last layer-neurons)) (second (last layer-neurons)))))
+             (:output-layer network))
+    )
+  )
+
   )
 
 ;; -------------------------------------------------------------------------
