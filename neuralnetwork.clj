@@ -30,7 +30,7 @@
 
 ])
 
-(def max-dim 512)
+(def max-dim 4096)
 
 (def unit-vector (dv (replicate max-dim 1)))
 (def unit-matrix (dge max-dim max-dim (repeat 1)))
@@ -51,7 +51,7 @@
 (import '(java.util Random))
 (def normals
   (let [r (Random.)]
-    (take 10000 (repeatedly #(-> r .nextGaussian (* 0.3) (+ 1.0))))
+    (take 50000 (repeatedly #(-> r .nextGaussian (* 0.3) (+ 1.0))))
     ;;(map #(/ % 10) (take 10000 (repeatedly #(-> r .nextGaussian (* 0.3) (+ 1.0)))))
     ))
 
@@ -406,14 +406,14 @@
         )
         (let [os (mod y 30)]
           (if (= os 0)
-            (let [mape-value (evaluate-abs (predict network input_test_matrix2) target_test_matrix2)
-                  mape-valueIN (evaluate-abs (predict network input_matrix2) target_matrix2)
+            (let [mape-value (evaluate-abs (predict network (:normalized-matrix test-norm-input-310)) (:normalized-matrix test-norm-target-310))
+                  ;; mape-valueIN (evaluate-abs (predict network input_matrix2) target_matrix2)
                   ]
               (do
                 (println y ": " mape-value)
-                (println y ": " mape-valueIN)
+                ;; (println y ": " mape-valueIN)
                 (println "---------------------")
-                (write-file "konvg_test_20180912.csv" (str y "," mape-value "\n")))
+                (write-file "test_62.csv" (str y "," mape-value "\n")))
               )
 
 
@@ -432,10 +432,10 @@
           )
         (let [os (mod y 100)]
           (if (= os 0)
-            (let [mape-value (evaluate-abs (predict network input_test_matrix2) target_test_matrix2)]
+            (let [mape-value (evaluate-abs (predict network (:normalized-matrix test-norm-input-310)) (:normalized-matrix test-norm-target-310))]
               (do
                 (println y ": " mape-value)
-                (write-file "konvg_test_20180912_learnig_decay_rate_002.csv" (str y "," mape-value "\n")))
+                (write-file "konvg_test_62_learnig_decay_rate.csv" (str y "," mape-value "\n")))
               )
 
 

@@ -101,14 +101,14 @@
   "get max value from vector"
   [input-vec]
   (let [max-index (imax input-vec)]
-    (entry input-vec max-index)
+    (* (entry input-vec max-index) 1.1)
     ))
 
 (defn get-min-value
   "get min value from vector"
   [input-vec]
   (let [min-index (imin input-vec)]
-    (entry input-vec min-index)
+    (* (entry input-vec min-index) 0.9)
     ))
 
 (defn normalize-vector
@@ -117,13 +117,15 @@
   (let [temp-min-vec (dv (repeat (dim input-vector) input-min))
         temp-max-vec (dv (repeat (dim input-vector) input-max))
         temp-maxmin  (dv (repeat (dim input-vector) input-max))
+        temp-result  (dv (repeat (dim result-vector) 0))
         ]
 
     (do
-      (axpy! input-vector result-vector)
+      (axpy! input-vector temp-result)
       (axpy! -1 temp-min-vec temp-maxmin)
-      (axpy! -1 temp-min-vec result-vector)
-      (div! result-vector temp-maxmin result-vector)
+      (axpy! -1 temp-min-vec temp-result)
+      (div! temp-result temp-maxmin temp-result)
+      (copy! temp-result result-vector)
       )
     )
   )
@@ -173,3 +175,15 @@
 ;; matrix with new data
 (def input-matrix-all (dge 62 2647 (reduce into [] (map :x (read-data-from-csv "resources/podaci_RS_2009-2015.csv")))))
 (def target-matrix-all (dge 1 2647 (reduce conj [] (map :y (read-data-from-csv "resources/podaci_RS_2009-2015.csv")))))
+
+(def input-730 (submatrix input-matrix-all 0 0 62 730))
+(def target-730 (submatrix target-matrix-all 0 0 1 730))
+
+(def test-input-310 (submatrix input-matrix-all 0 731 62 1040))
+(def test-target-310 (submatrix target-matrix-all 0 731 1 1040))
+
+(def norm-input-730 (create-norm-matrix input-730))
+(def norm-target-730 (create-norm-matrix target-730))
+
+(def test-norm-input-310 (create-norm-matrix test-input-310))
+(def test-norm-target-310 (create-norm-matrix test-target-310))

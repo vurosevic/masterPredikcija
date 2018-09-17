@@ -122,13 +122,20 @@
 (def mreza5 (atom (create-network-gaussian 50 [64 64 64 64 64 64] 1)))
 (def mreza5 (atom (create-network 50 [64 64 64 64 64 64] 1)))
 (def mreza5 (atom (create-network 50 [64 64 64] 1)))
-(def mreza5 (atom (create-network-gaussian 50 [64 64 64] 1)))
+
+(def mreza5 (atom (create-network-gaussian 62 [64 64 64] 1)))
+(def mreza5 (atom (create-network-gaussian 62 [128 128] 1)))
+(def mreza5 (atom (create-network 62 [128 128] 1)))
+
 (def mreza5 (atom (create-network 50 [64 64] 1)))
 (feed-forward @mreza5 (submatrix input_matrix2 0 1 50 1))
 (evaluate (predict @mreza5 input_matrix2) target_matrix2)
 (evaluate (predict @mreza5 input_test_matrix2) target_test_matrix2)
 (evaluate-abs (predict @mreza5 input_matrix2) target_matrix2)
 (evaluate-abs (predict @mreza5 input_test_matrix2) target_test_matrix2)
+
+(evaluate (predict @mreza5 (:normalized-matrix norm-input-730)) (:normalized-matrix norm-target-730))
+(evaluate-abs (predict @mreza5 (:normalized-matrix norm-input-730)) (:normalized-matrix norm-target-730))
 
 (xavier-initialization-update @mreza5)
 
@@ -157,7 +164,27 @@
 
 ;; daje dobre rezultate sa 50 64 64 1
 (time (train-network @mreza5 input_matrix2
-                     target_matrix2 3000 0.005 -0.9))
+                     target_matrix2 3000 0.015 -0.9))
 
 (time (train-network @mreza5 input_matrix2
                      target_matrix2 13000 0.0015 -0.9))
+
+(def mreza5 (atom (create-network-gaussian 62 [64 64 64 64] 1)))
+(def mreza5 (atom (create-network-gaussian 62 [128 128] 1)))
+
+(xavier-initialization-update @mreza5)
+
+(evaluate (predict @mreza5 (:normalized-matrix norm-input-730)) (:normalized-matrix norm-target-730))
+(evaluate-abs (predict @mreza5 (:normalized-matrix norm-input-730)) (:normalized-matrix norm-target-730))
+
+(evaluate (predict @mreza5 (:normalized-matrix test-norm-input-310)) (:normalized-matrix test-norm-target-310))
+(evaluate-abs (predict @mreza5 (:normalized-matrix test-norm-input-310)) (:normalized-matrix test-norm-target-310))
+
+(save-network-to-file @mreza5 "nn_62_64_64_64_471b.csv")
+(def mreza5 (atom (create-network-from-file "nn_62_64_64_64_471b.csv")))
+
+(time (train-network-with-learning-decay-rate @mreza5 (:normalized-matrix norm-input-730)
+                                              (:normalized-matrix norm-target-730) 1000 0.015 0 0.002))
+
+(time (train-network @mreza5 (:normalized-matrix norm-input-730)
+                     (:normalized-matrix norm-target-730) 100 0.0015 -0.9))
