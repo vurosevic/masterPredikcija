@@ -166,6 +166,55 @@
     )
   )
 
+(defn create-network-gaussian
+  "create new neural network"
+  [number-input-neurons vector-of-numbers-hidden-neurons number-output-neurons]
+  (let [tmp1 (into (vector number-input-neurons) vector-of-numbers-hidden-neurons)
+        tmp2 (conj vector-of-numbers-hidden-neurons number-output-neurons)
+        temp-matrix (for [x tmp2]
+                      (conj (#(create-null-matrix x 1))))
+        hidden-layers (for [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
+                        (conj (#(create-random-matrix-by-gaussian (first x) (second x)))))
+        output-layer (create-random-matrix-by-gaussian (first (last (map vector tmp1 tmp2)))
+                                           (second (last (map vector tmp1 tmp2))))
+        biases (vec (for [x tmp2] (dge x 1 (repeat x 1))))
+        temp-vector-vector-h-gradients (vec (for [x tmp2] (dge x 1 (repeat x 0))))
+        temp-vector-o-gradients  (dge number-output-neurons 1 (repeat number-output-neurons 0))
+        temp-vector-o-gradients2 (dge number-output-neurons 1 (repeat number-output-neurons 0))
+
+        temp-matrix-1 (dge number-output-neurons 1)
+        temp-vector-matrix-delta (vec (concat (for [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
+                                                (conj (#(create-null-matrix (first x) (second x)))))
+                                              (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
+                                                                          (second (last (map vector tmp1 tmp2)))))))
+        temp-vector-matrix-delta-biases (vec (for [x tmp2] (dge x 1 (repeat x 0))))
+        temp-prev-delta-vector-matrix-delta (vec (concat (for [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
+                                                           (conj (#(create-null-matrix (first x) (second x)))))
+                                                         (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
+                                                                                     (second (last (map vector tmp1 tmp2)))))))
+        temp-vector-matrix-delta-momentum (vec (concat (for [x (take (dec (count (map vector tmp1 tmp2))) (map vector tmp1 tmp2))]
+                                                         (conj (#(create-null-matrix (first x) (second x)))))
+                                                       (vector (create-null-matrix (first (last (map vector tmp1 tmp2)))
+                                                                                   (second (last (map vector tmp1 tmp2)))))))
+        ]
+    (->Neuronetwork hidden-layers
+                    output-layer
+                    biases
+                    tmp1
+                    tmp2
+                    temp-matrix
+                    temp-vector-o-gradients
+                    temp-vector-o-gradients2
+                    temp-vector-vector-h-gradients
+                    temp-matrix-1
+                    temp-vector-matrix-delta
+                    temp-vector-matrix-delta-biases
+                    temp-prev-delta-vector-matrix-delta
+                    temp-prev-delta-vector-matrix-delta)
+    )
+  )
+
+
 (defn feed-forward
   "feed forward propagation"
   [network input-mtx]
@@ -355,7 +404,7 @@
         (doseq [x (range line-count)]
            (backpropagation network input-mtx x target-mtx speed-learning alpha)
         )
-        (let [os (mod y 100)]
+        (let [os (mod y 30)]
           (if (= os 0)
             (let [mape-value (evaluate-abs (predict network input_test_matrix2) target_test_matrix2)
                   mape-valueIN (evaluate-abs (predict network input_matrix2) target_matrix2)

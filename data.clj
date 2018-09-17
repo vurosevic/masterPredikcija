@@ -5,9 +5,24 @@
             [uncomplicate.neanderthal.vect-math :refer :all]
             [uncomplicate.neanderthal.native :refer :all]))
 
+(defrecord Normalizedmatrix [
+                         normalized-matrix
+                         restore-coeficients                ;; matrix 2 x num of cols, min and max value for each columns
+                         ]
+  )
+
 (defn parse-float [s]
   (Float/parseFloat s)
   )
+
+(defn read-data-from-csv
+  "Read the csv file, split out each line and then each number, parse the tokens and break up the numbers so that the last is the target and everything else is the feature vector."
+  [filename]
+  (as-> (slurp filename) d
+        (string/split d #"\n")
+        (map #(string/split % #",") d)
+        (map #(map parse-float %) d)
+        (map (fn [s] {:x  (vec (drop-last s))  :y (last s)}) d)))
 
 (defn read-data-training
   "Read the csv file, split out each line and then each number, parse the tokens and break up the numbers so that the last is the target and everything else is the feature vector."
@@ -82,6 +97,71 @@
     ))
 
 
+(defn get-max-value
+  "get max value from vector"
+  [input-vec]
+  (let [max-index (imax input-vec)]
+    (entry input-vec max-index)
+    ))
+
+(defn get-min-value
+  "get min value from vector"
+  [input-vec]
+  (let [min-index (imin input-vec)]
+    (entry input-vec min-index)
+    ))
+
+(defn normalize-vector
+  [input-vector input-min input-max result-vector]
+
+  (let [temp-min-vec (dv (repeat (dim input-vector) input-min))
+        temp-max-vec (dv (repeat (dim input-vector) input-max))
+        temp-maxmin  (dv (repeat (dim input-vector) input-max))
+        ]
+
+    (do
+      (axpy! input-vector result-vector)
+      (axpy! -1 temp-min-vec temp-maxmin)
+      (axpy! -1 temp-min-vec result-vector)
+      (div! result-vector temp-maxmin result-vector)
+      )
+    )
+  )
+
+(defn create-norm-matrix
+  [input-matrix]
+  (let [rows-count (mrows input-matrix)
+        cols-count (ncols input-matrix)
+        norm-matrix (dge rows-count cols-count)             ;; create null matrix
+        coef-matrix (dge rows-count 2)
+        ]
+
+    (do
+      (doseq [x (range (mrows input-matrix))]
+        (let [min-value (get-min-value (row input-matrix x))
+              max-value (get-max-value (row input-matrix x))
+              row-coef  (row coef-matrix x)
+              ]
+          (do
+            (entry! row-coef 0 min-value)
+            (entry! row-coef 1 max-value)
+              (normalize-vector (row input-matrix x)
+                                          min-value
+                                          max-value
+                                (row norm-matrix x))
+            )
+          )
+        )
+
+      (->Normalizedmatrix
+        norm-matrix
+        coef-matrix
+        ))
+    )
+  )
+
+
+
 ;; matrixs for training, 70% of all data
 (def input_matrix2 (dge 50 276 (reduce into [] (map :x (read-data-training)))))
 (def target_matrix2 (dge 1 276 (map :y (read-data-training))))
@@ -89,3 +169,7 @@
 ;; matrixs for test, 30% of all data
 (def input_test_matrix2 (dge 50 91 (reduce into [] (map :x (read-data-test)))))
 (def target_test_matrix2 (dge 1 91 (map :y (read-data-test))))
+
+;; matrix with new data
+(def input-matrix-all (dge 62 2647 (reduce into [] (map :x (read-data-from-csv "resources/podaci_RS_2009-2015.csv")))))
+(def target-matrix-all (dge 1 2647 (reduce conj [] (map :y (read-data-from-csv "resources/podaci_RS_2009-2015.csv")))))

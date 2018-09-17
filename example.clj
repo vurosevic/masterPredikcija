@@ -118,8 +118,11 @@
 
 
 ;; test
+
+(def mreza5 (atom (create-network-gaussian 50 [64 64 64 64 64 64] 1)))
 (def mreza5 (atom (create-network 50 [64 64 64 64 64 64] 1)))
 (def mreza5 (atom (create-network 50 [64 64 64] 1)))
+(def mreza5 (atom (create-network-gaussian 50 [64 64 64] 1)))
 (def mreza5 (atom (create-network 50 [64 64] 1)))
 (feed-forward @mreza5 (submatrix input_matrix2 0 1 50 1))
 (evaluate (predict @mreza5 input_matrix2) target_matrix2)
@@ -135,7 +138,7 @@
 (def mreza5 (atom (create-network-from-file "nn_64_64_183b.csv")))
 
 (time (train-network @mreza5 input_matrix2
-                     target_matrix2 1000 0.00015 0.9))
+                     target_matrix2 1000 0.015 0.9))
 
 (time (train-network @mreza5 input_matrix2
                      target_matrix2 2000 0.005 0))
@@ -154,7 +157,7 @@
 
 ;; daje dobre rezultate sa 50 64 64 1
 (time (train-network @mreza5 input_matrix2
-                     target_matrix2 200 0.005 -0.9))
+                     target_matrix2 3000 0.005 -0.9))
 
 (time (train-network @mreza5 input_matrix2
                      target_matrix2 13000 0.0015 -0.9))
