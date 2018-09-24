@@ -4,6 +4,7 @@
             [uncomplicate.neanderthal.vect-math :refer :all]
             [uncomplicate.neanderthal.native :refer :all]
             [uncomplicate.neanderthal.linalg :refer :all]
+            [criterium.core :refer :all]
             [clojure.string :as string]
             [clojure.core :as core]
             [master-predikcija.data :refer :all]
@@ -169,8 +170,12 @@
 (time (train-network @mreza5 input_matrix2
                      target_matrix2 13000 0.0015 -0.9))
 
-(def mreza5 (atom (create-network-gaussian 62 [64 64 64 64] 1)))
-(def mreza5 (atom (create-network-gaussian 62 [128 128] 1)))
+(def mreza5 (atom (create-network-gaussian 20 [64 64] 1)))
+(def mreza5 (atom (create-network-gaussian 64 [80] 1)))
+(def mreza5 (atom (create-network-gaussian 64 [128 128 128] 1)))
+(def mreza5 (atom (create-network-gaussian 64 [80 80 80] 1)))
+
+(native! mreza5)
 
 (xavier-initialization-update @mreza5)
 
@@ -180,11 +185,61 @@
 (evaluate (predict @mreza5 (:normalized-matrix test-norm-input-310)) (:normalized-matrix test-norm-target-310))
 (evaluate-abs (predict @mreza5 (:normalized-matrix test-norm-input-310)) (:normalized-matrix test-norm-target-310))
 
-(save-network-to-file @mreza5 "nn_62_64_64_64_471b.csv")
-(def mreza5 (atom (create-network-from-file "nn_62_64_64_64_471b.csv")))
+(save-network-to-file @mreza5 "nn_64_80_80_80_140b.csv")
+(def mreza5 (atom (create-network-from-file "nn_56_80_80_80_80_442.csv")))
 
 (time (train-network-with-learning-decay-rate @mreza5 (:normalized-matrix norm-input-730)
-                                              (:normalized-matrix norm-target-730) 1000 0.015 0 0.002))
+                      (:normalized-matrix norm-target-730) 200 0.015 0 0.002))
 
 (time (train-network @mreza5 (:normalized-matrix norm-input-730)
-                     (:normalized-matrix norm-target-730) 100 0.0015 -0.9))
+                     (:normalized-matrix norm-target-730) 100 0.0015 -0.02))
+
+
+(time (train-network-with-learning-decay-rate @mreza5 (:normalized-matrix norm-input-730)
+                     (:normalized-matrix norm-target-730) 200 0.015 0 0.002))
+
+(time (train-network-with-learning-decay-rate @mreza5 (:normalized-matrix norm-input-730)
+                     (:normalized-matrix norm-target-730) 150 0.0015 -0.9 0.1))
+
+(def mreza5 (atom (create-network 64 [80 80] 1)))
+
+
+;; max odstupanje
+(apply max (vec (map #(:percent-abs %)
+                (evaluate (predict @mreza5 (:normalized-matrix test-norm-input-310))
+                           (:normalized-matrix test-norm-target-310)))))
+
+
+(doseq [x (range (count izlaz-real))]
+  (write-file "izlaz-real.csv" (str (nth izlaz-real x) "\n"))
+  )
+
+(doseq [x (range (count izlaz-target))]
+  (write-file "izlaz-target.csv" (str (nth izlaz-target x) "\n"))
+  )
+
+(def norm-izlaz-real (vec (map #(:output %)
+                          (evaluate (predict @mreza5 (:normalized-matrix test-norm-input-310))
+                                    (:normalized-matrix test-norm-target-310)))))
+
+(def norm-izlaz-target (vec (map #(:target %)
+                               (evaluate (predict @mreza5 (:normalized-matrix test-norm-input-310))
+                                         (:normalized-matrix test-norm-target-310)))))
+
+(def izlaz-real (map #(+ (* % (- 165513.7 73045.8)) 73045.8) norm-izlaz-real))
+(def izlaz-target (map #(+ (* % (- 165513.7 73045.8)) 73045.8) norm-izlaz-target))
+
+
+(restore-output-vector test-norm-target-310 (predict @mreza5 (:normalized-matrix test-norm-input-310)) 0)
+(restore-output-vector test-norm-target-310 (:normalized-matrix test-norm-target-310) 0)
+
+
+(evaluate-original (restore-output-vector test-norm-target-310 (predict @mreza5 (:normalized-matrix test-norm-input-310)) 0)
+(restore-output-vector test-norm-target-310 (:normalized-matrix test-norm-target-310) 0)
+  )
+
+(evaluate-original-mape
+     (evaluate-original (restore-output-vector test-norm-target-310 (predict @mreza5 (:normalized-matrix test-norm-input-310)) 0)
+                        (restore-output-vector test-norm-target-310 (:normalized-matrix test-norm-target-310) 0)
+                        )
+     )

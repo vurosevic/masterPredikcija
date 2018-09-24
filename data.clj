@@ -55,8 +55,8 @@
     (write-file filename
                 (str (string/join ""
                                   (drop-last
-                                    (reduce str (map str (conj (:tmp1 network) (last (:tmp2 network)))
-                                                     (replicate (count (conj (:tmp1 network) (last (:tmp2 network)))) ","))))) "\n")
+                                    (reduce str (map str (conj (vec (:tmp1 network)) (last (:tmp2 network)))
+                                                     (replicate (count (conj (vec (:tmp1 network)) (last (:tmp2 network)))) ","))))) "\n")
                 )
 
     (write-file filename "BIASES\n")
@@ -114,18 +114,19 @@
 (defn normalize-vector
   [input-vector input-min input-max result-vector]
 
-  (let [temp-min-vec (dv (repeat (dim input-vector) input-min))
-        temp-max-vec (dv (repeat (dim input-vector) input-max))
-        temp-maxmin  (dv (repeat (dim input-vector) input-max))
+  (let [temp-min-vec (dv (repeat (dim input-vector) input-min)) ;; (/ input-min 0.9)
+        temp-max-vec (dv (repeat (dim input-vector) input-max)) ;; (/ input-max 1.1)
+        temp-maxmin  (dv (repeat (dim input-vector) input-max)) ;; (/ input-max 1.1)
         temp-result  (dv (repeat (dim result-vector) 0))
+        temp-result2  (dv (repeat (dim result-vector) 0))
         ]
 
     (do
       (axpy! input-vector temp-result)
       (axpy! -1 temp-min-vec temp-maxmin)
       (axpy! -1 temp-min-vec temp-result)
-      (div! temp-result temp-maxmin temp-result)
-      (copy! temp-result result-vector)
+      (div! temp-result temp-maxmin temp-result2)
+      (copy! temp-result2 result-vector)
       )
     )
   )
@@ -162,6 +163,22 @@
     )
   )
 
+(defn restore-output-vector
+  "Restoring output vector"
+  [normalized-record norm-matrix row-no]
+  (let [coef (:restore-coeficients normalized-record)
+        norm-vector (row norm-matrix row-no)
+        min-value (entry (row coef row-no) 0)
+        max-value (entry (row coef row-no) 1)
+        maxmin-value (- max-value min-value)
+        maxmin-vector (dv (repeat (dim norm-vector) maxmin-value))
+        min-vector (dv (repeat (dim norm-vector) min-value))
+        ]
+
+     (axpy! min-vector (mul norm-vector maxmin-vector))
+    )
+  )
+
 
 
 ;; matrixs for training, 70% of all data
@@ -173,17 +190,23 @@
 (def target_test_matrix2 (dge 1 91 (map :y (read-data-test))))
 
 ;; matrix with new data
-(def input-matrix-all (dge 62 2647 (reduce into [] (map :x (read-data-from-csv "resources/podaci_RS_2009-2015.csv")))))
-(def target-matrix-all (dge 1 2647 (reduce conj [] (map :y (read-data-from-csv "resources/podaci_RS_2009-2015.csv")))))
+(def input-matrix-all (dge 64 2647 (reduce into [] (map :x (read-data-from-csv "resources/podaci_RS_2009-2015praznici_analiza2.csv")))))
+(def target-matrix-all (dge 1 2647 (reduce conj [] (map :y (read-data-from-csv "resources/podaci_RS_2009-2015praznici_analiza2.csv")))))
 
-(def input-730 (submatrix input-matrix-all 0 0 62 730))
-(def target-730 (submatrix target-matrix-all 0 0 1 730))
+(def input-730 (submatrix input-matrix-all 0 0 64 1852))
+(def target-730 (submatrix target-matrix-all 0 0 1 1852))
 
-(def test-input-310 (submatrix input-matrix-all 0 731 62 1040))
-(def test-target-310 (submatrix target-matrix-all 0 731 1 1040))
+(def test-input-310 (submatrix input-matrix-all 0 1854 64 793))
+(def test-target-310 (submatrix target-matrix-all 0 1854 1 793))
 
 (def norm-input-730 (create-norm-matrix input-730))
 (def norm-target-730 (create-norm-matrix target-730))
 
 (def test-norm-input-310 (create-norm-matrix test-input-310))
 (def test-norm-target-310 (create-norm-matrix test-target-310))
+
+(native! norm-input-730)
+(native! norm-target-730)
+(native! test-norm-input-310)
+(native! test-norm-target-310)
+

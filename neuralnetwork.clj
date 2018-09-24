@@ -51,10 +51,13 @@
 (import '(java.util Random))
 (def normals
   (let [r (Random.)]
-    (take 50000 (repeatedly #(-> r .nextGaussian (* 0.3) (+ 1.0))))
+    (map #(/ % 4.8) (take 500000 (repeatedly #(-> r .nextGaussian (* 0.9) (+ 1.0)))))
+    ;;    (take 500000 (repeatedly #(-> r .nextGaussian (* 0.9) (+ 1.0))))
     ;;(map #(/ % 10) (take 10000 (repeatedly #(-> r .nextGaussian (* 0.3) (+ 1.0)))))
     ))
 
+
+(def trenutna-vrednost (atom 0))
 
 (defn create-random-matrix-by-gaussian
   "Initialize a layer"
@@ -65,7 +68,9 @@
     (if (> dim-x max-dim)
       (throw (Exception. (str "Error. Max number of neurons is " max-dim))))
     ;; (dge dim-y dim-x (repeatedly random-number))
-    (dge dim-y dim-x (take (* dim-x dim-y) normals))
+    (reset! trenutna-vrednost (+ @trenutna-vrednost (* dim-x dim-y)))
+    ;;    (dge dim-y dim-x (take (* dim-x dim-y) normals))
+    (dge dim-y dim-x (nthrest normals @trenutna-vrednost))
     ))
 
 (defn create-random-matrix
@@ -96,8 +101,7 @@
   (do
     (mm! 1.0 weights input 0.0 result)
      (for [x (range (count (cols result)))]
-          (axpy! biases (cols result x))
-       )
+      (axpy! biases (cols result x))  )
     (o-func result)
     )
  )
@@ -226,9 +230,8 @@
     (if (= input-vec-dim net-input-dim)
       (do
         ;; set o-gradients to zero
-        (copy! (dge (last (:tmp2 network)) 1 (replicate (last (:tmp2 network)) 0)) (:temp-vector-o-gradients network))
-        (copy! (dge (last (:tmp2 network)) 1 (replicate (last (:tmp2 network)) 0)) (:temp-vector-o-gradients2 network))
-
+        (entry! (:temp-vector-o-gradients network) 0)
+        (entry! (:temp-vector-o-gradients2 network) 0)
 
         (layer-output input-mtx (trans (nth (:hidden-layers network) 0)) (nth (:biases network) 0)  (nth temp-matrix 0) tanh!)
         (doseq [y (range 0 (- number-of-layers 2))]
@@ -348,10 +351,7 @@
           (axpy! alpha (nth (:temp-prev-delta-vector-matrix-delta network) layer-grad)
                (nth layers layer-grad))
          )
-        )
-
-
-      )
+        ))
      )
   )
 
@@ -378,7 +378,7 @@
     (for [i (range num)]
       {:output      (entry output-mtx 0 i)
        :target      (entry target-mtx 0 i)
-       :percent-abs (Math/abs (* (/ (- (entry output-mtx 0 i) (entry target-mtx 0 i)) (entry target-mtx 0 i)) 100))}
+       :percent-abs (Math/abs (* (/ (- (entry target-mtx 0 i) (entry output-mtx 0 i)) (entry target-mtx 0 i)) 100))}
       )))
 
 (defn evaluate-abs
@@ -387,6 +387,18 @@
   (let [u (count (map :percent-abs (evaluate input-mtx target-mtx)))
         s (reduce + (map :percent-abs (evaluate input-mtx target-mtx)))]
     (/ s u)))
+
+(defn evaluate-original
+  "evaluate restored values"
+  [output-vec target-vec]
+   (div (abs (axpy -1 target-vec output-vec)) target-vec)
+  )
+
+(defn evaluate-original-mape
+  "MAPE calculations"
+  [error-vec]
+  (* (/ (sum error-vec) (dim error-vec)) 100)
+  )
 
 
 (defn learning-decay-rate
@@ -406,14 +418,19 @@
         )
         (let [os (mod y 30)]
           (if (= os 0)
-            (let [mape-value (evaluate-abs (predict network (:normalized-matrix test-norm-input-310)) (:normalized-matrix test-norm-target-310))
+            (let [mape-value (evaluate-original-mape
+                               (evaluate-original (restore-output-vector test-norm-target-310 (predict network (:normalized-matrix test-norm-input-310)) 0)
+                                                  (restore-output-vector test-norm-target-310 (:normalized-matrix test-norm-target-310) 0)
+                                                  )
+                               )
                   ;; mape-valueIN (evaluate-abs (predict network input_matrix2) target_matrix2)
                   ]
               (do
                 (println y ": " mape-value)
                 ;; (println y ": " mape-valueIN)
                 (println "---------------------")
-                (write-file "test_62.csv" (str y "," mape-value "\n")))
+                ;;(write-file "test_62.csv" (str y "," mape-value "\n"))
+                )
               )
 
 
@@ -430,12 +447,13 @@
         (doseq [x (range line-count)]
           (backpropagation network input-mtx x target-mtx (learning-decay-rate speed-learning decay-rate y) alpha)
           )
-        (let [os (mod y 100)]
+        (let [os (mod y 30)]
           (if (= os 0)
             (let [mape-value (evaluate-abs (predict network (:normalized-matrix test-norm-input-310)) (:normalized-matrix test-norm-target-310))]
               (do
                 (println y ": " mape-value)
-                (write-file "konvg_test_62_learnig_decay_rate.csv" (str y "," mape-value "\n")))
+                ;;(write-file "konvg_test_62_learnig_decay_rate.csv" (str y "," mape-value "\n"))
+                )
               )
 
 
